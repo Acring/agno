@@ -32,6 +32,9 @@ from agno.os.utils import (
     format_sse_event,
     get_request_kwargs,
     get_team_by_id,
+    parse_json_audio,
+    parse_json_images,
+    parse_json_videos,
     process_audio,
     process_document,
     process_image,
@@ -169,6 +172,9 @@ def get_team_router(
         session_id: Optional[str] = Form(None),
         user_id: Optional[str] = Form(None),
         files: Optional[List[UploadFile]] = File(None),
+        images: Optional[str] = Form(None),
+        audio: Optional[str] = Form(None),
+        videos: Optional[str] = Form(None),
         version: Optional[int] = Form(None),
         background: bool = Form(False),
     ):
@@ -212,24 +218,24 @@ def get_team_router(
             logger.debug("Creating new session")
             session_id = str(uuid4())
 
-        base64_images: List[Image] = []
-        base64_audios: List[Audio] = []
-        base64_videos: List[Video] = []
+        all_images: List[Image] = []
+        all_audios: List[Audio] = []
+        all_videos: List[Video] = []
         document_files: List[FileMedia] = []
 
         if files:
             for file in files:
                 if file.content_type in ["image/png", "image/jpeg", "image/jpg", "image/webp"]:
                     try:
-                        base64_image = process_image(file)
-                        base64_images.append(base64_image)
+                        uploaded_image = process_image(file)
+                        all_images.append(uploaded_image)
                     except Exception as e:
                         logger.error(f"Error processing image {file.filename}: {e}")
                         continue
                 elif file.content_type in ["audio/wav", "audio/mp3", "audio/mpeg"]:
                     try:
-                        base64_audio = process_audio(file)
-                        base64_audios.append(base64_audio)
+                        uploaded_audio = process_audio(file)
+                        all_audios.append(uploaded_audio)
                     except Exception as e:
                         logger.error(f"Error processing audio {file.filename}: {e}")
                         continue
@@ -247,8 +253,8 @@ def get_team_router(
                     "video/3gpp",
                 ]:
                     try:
-                        base64_video = process_video(file)
-                        base64_videos.append(base64_video)
+                        uploaded_video = process_video(file)
+                        all_videos.append(uploaded_video)
                     except Exception as e:
                         logger.error(f"Error processing video {file.filename}: {e}")
                         continue
@@ -264,6 +270,14 @@ def get_team_router(
                         document_files.append(document_file)
                 else:
                     raise HTTPException(status_code=400, detail="Unsupported file type")
+
+        # Merge JSON-encoded media references (URLs, base64, etc.) with uploaded files
+        if images:
+            all_images.extend(parse_json_images(images))
+        if audio:
+            all_audios.extend(parse_json_audio(audio))
+        if videos:
+            all_videos.extend(parse_json_videos(videos))
 
         # Extract auth token for remote teams
         auth_token = get_auth_token_from_request(request)
@@ -281,9 +295,9 @@ def get_team_router(
                 input=message,
                 session_id=session_id,
                 user_id=user_id,
-                images=base64_images if base64_images else None,
-                audio=base64_audios if base64_audios else None,
-                videos=base64_videos if base64_videos else None,
+                images=all_images if all_images else None,
+                audio=all_audios if all_audios else None,
+                videos=all_videos if all_videos else None,
                 files=document_files if document_files else None,
                 stream=False,
                 background=True,
@@ -305,9 +319,9 @@ def get_team_router(
                     message,
                     session_id=session_id,
                     user_id=user_id,
-                    images=base64_images if base64_images else None,
-                    audio=base64_audios if base64_audios else None,
-                    videos=base64_videos if base64_videos else None,
+                    images=all_images if all_images else None,
+                    audio=all_audios if all_audios else None,
+                    videos=all_videos if all_videos else None,
                     files=document_files if document_files else None,
                     background_tasks=background_tasks,
                     auth_token=auth_token,
@@ -325,9 +339,9 @@ def get_team_router(
                     input=message,
                     session_id=session_id,
                     user_id=user_id,
-                    images=base64_images if base64_images else None,
-                    audio=base64_audios if base64_audios else None,
-                    videos=base64_videos if base64_videos else None,
+                    images=all_images if all_images else None,
+                    audio=all_audios if all_audios else None,
+                    videos=all_videos if all_videos else None,
                     files=document_files if document_files else None,
                     stream=False,
                     background_tasks=background_tasks,

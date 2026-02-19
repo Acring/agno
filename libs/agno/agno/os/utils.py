@@ -70,7 +70,11 @@ async def get_request_kwargs(request: Request, endpoint_func: Callable) -> Dict[
     form_data = await request.form()
     sig = inspect.signature(endpoint_func)
     known_fields = set(sig.parameters.keys())
-    kwargs: Dict[str, Any] = {key: value for key, value in form_data.items() if key not in known_fields}
+    # Also exclude media fields that are handled explicitly by routers
+    media_fields = {"images", "audio", "videos"}
+    kwargs: Dict[str, Any] = {
+        key: value for key, value in form_data.items() if key not in known_fields and key not in media_fields
+    }
 
     # Handle JSON parameters. They are passed as strings and need to be deserialized.
     if session_state := kwargs.get("session_state"):
@@ -454,6 +458,61 @@ def extract_input_media(run_dict: Dict[str, Any]) -> Dict[str, Any]:
         input_media["files"].extend(input_data.get("files", []))
 
     return input_media
+
+
+def parse_json_images(raw: str) -> List[Image]:
+    """Parse a JSON string into a list of Image objects.
+
+    Accepts a JSON array of objects with fields matching the Image model
+    (e.g. url, filepath, content, detail, mime_type, format).
+    """
+    try:
+        items = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON for images parameter")
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="images parameter must be a JSON array")
+    result: List[Image] = []
+    for item in items:
+        try:
+            result.append(Image(**item))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid image object: {e}")
+    return result
+
+
+def parse_json_audio(raw: str) -> List[Audio]:
+    """Parse a JSON string into a list of Audio objects."""
+    try:
+        items = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON for audio parameter")
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="audio parameter must be a JSON array")
+    result: List[Audio] = []
+    for item in items:
+        try:
+            result.append(Audio(**item))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid audio object: {e}")
+    return result
+
+
+def parse_json_videos(raw: str) -> List[Video]:
+    """Parse a JSON string into a list of Video objects."""
+    try:
+        items = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON for videos parameter")
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="videos parameter must be a JSON array")
+    result: List[Video] = []
+    for item in items:
+        try:
+            result.append(Video(**item))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid video object: {e}")
+    return result
 
 
 def process_image(file: UploadFile) -> Image:
