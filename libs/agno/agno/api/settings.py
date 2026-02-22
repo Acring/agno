@@ -11,7 +11,7 @@ from agno.utils.log import logger
 
 class AgnoAPISettings(BaseSettings):
     app_name: str = "agno"
-    app_version: str = metadata.version("agno")
+    app_version: str = metadata.version("acring-agno")
 
     api_runtime: str = "prd"
     alpha_features: bool = False
