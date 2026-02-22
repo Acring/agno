@@ -27,7 +27,7 @@ try:
 except ImportError:
     raise ImportError("`pymongo` not installed. Please install using `pip install pymongo`")
 
-DRIVER_METADATA = DriverInfo(name="Agno", version=metadata.version("agno"))
+DRIVER_METADATA = DriverInfo(name="Agno", version=metadata.version("acring-agno"))
 
 
 class MongoDb(VectorDb):

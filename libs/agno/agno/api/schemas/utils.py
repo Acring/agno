@@ -16,6 +16,6 @@ def get_sdk_version() -> str:
     from importlib.metadata import version as pkg_version
 
     try:
-        return pkg_version("agno")
+        return pkg_version("acring-agno")
     except Exception:
         return "unknown"
